@@ -1,5 +1,5 @@
 import { View, Text, Dimensions, Image, Platform, Modal, Button } from 'react-native'
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { StyleSheet } from 'react-native'
 import AntDesign from '@expo/vector-icons/AntDesign';
 import { TouchableOpacity } from 'react-native';
@@ -29,10 +29,25 @@ export default function Home({ updateAuthState }) {
     const [profileModalVisible, setProfileModalVisible] = useState(false);  // 유저 프로필 모달 상태 추가
     const [selectedCategories, setSelectedCategories] = useState([]);
     const [userInfo, setUserInfo] = useState({
-        // login 연결하면서 수정
-        name: '홍길동',  // 예시 유저명
-        email: 'hong@example.com',  // 예시 이메일
+        name: '',
     });
+
+    useEffect(() => {
+        async function fetchUser() {
+        try {
+            const userData = await getCurrentUser(); // 현재 사용자 정보 가져오기
+            setUserInfo({
+                name: userData.username, // 사용자 이름
+            });
+            console.log('User data:', userData);
+        } catch (error) {
+            console.error('Error fetching user:', error);
+            Alert.alert('Error', 'Failed to fetch user data. Please try logging in again.');
+        }
+        }
+
+        fetchUser();
+    }, []);
 
     const handleCategoriesSelect = (categories) => {
         setSelectedCategories(categories);
@@ -120,8 +135,6 @@ export default function Home({ updateAuthState }) {
                     <View style={styles.modalContainer}>
                         <Text style={styles.modalTitle}>User Profile</Text>
                         <Text style={styles.modalText}>이름: {userInfo.name}</Text>
-                        <Text style={styles.modalText}>이메일: {userInfo.email}</Text>
-
                         <View style={styles.modalButtons}>
                             <Button title="로그아웃" onPress={handleSignOut} />
                             <Button title="취소" onPress={() => setProfileModalVisible(false)} />
