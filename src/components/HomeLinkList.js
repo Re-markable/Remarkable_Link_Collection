@@ -16,7 +16,7 @@ import { listBookmarks } from '../graphql/queries.js';
 
 const client = generateClient();
 
-export default function HomeLinkList({ selectedCategories }) {
+export default function HomeLinkList({ selectedCategories, onRefreshBookmarks }) {
   const [bookmarks, setBookmarks] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [filteredData, setFilteredData] = useState([]);
@@ -42,6 +42,13 @@ export default function HomeLinkList({ selectedCategories }) {
     }
   };
 
+  // onRefreshBookmarks로 외부에 refreshBookmarks 함수 전달
+  useEffect(() => {
+    if (onRefreshBookmarks) {
+      onRefreshBookmarks(fetchBookmarks);
+    }
+  }, [onRefreshBookmarks]);
+  
   // filter categories
   useEffect(() => {
     const newFilteredData =
