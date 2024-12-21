@@ -40,7 +40,7 @@ const AuthenticationNavigator = props => {
 const AppNavigator = props => {
   return (
     <AppStack.Navigator>
-      <AppStack.Screen name="Home" component={Home}>
+      <AppStack.Screen name="Home">
         {screenProps => (
           <Home {...screenProps} updateAuthState={props.updateAuthState} />
         )}

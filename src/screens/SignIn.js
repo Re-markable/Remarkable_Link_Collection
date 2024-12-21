@@ -15,7 +15,7 @@ function SignIn({ navigation, updateAuthState }) {
     async function handleSignIn() {
       try {
         await signIn({ username, password });
-        console.log('✅ Sign-in success:', user);
+        console.log('✅ Sign-in success:');
         updateAuthState('loggedIn');
       } catch (err) {
         console.error('❌ Error signing in:', err);
