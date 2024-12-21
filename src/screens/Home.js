@@ -111,7 +111,7 @@ export default function Home({ updateAuthState }) {
                 };
 
                 const ogTitle = getMetaContent('og:title') || 'No title';
-                const ogDescription = getMetaContent('og:description') || 'No description';
+                const ogDescription = getMetaContent('og:description') || ' ';
                 let ogImage = getMetaContent('og:image') || 'No image';
                 const ogSiteName = getMetaContent('og:site_name') || 'Unknown Site';
 
@@ -121,6 +121,27 @@ export default function Home({ updateAuthState }) {
                     ogImage = new URL(ogImage, baseUrl.origin).href;
                 }
                 
+                // POST 요청으로 prediction 값 가져오기
+                let predictedCategory = 'Uncategorized';
+                try {
+                    const predictionResponse = await fetch('http://15.168.237.201:5000/model', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({ title: ogTitle }),
+                    });
+
+                    if (predictionResponse.ok) {
+                        const predictionData = await predictionResponse.json();
+                        predictedCategory = predictionData.prediction || 'Uncategorized';
+                    } else {
+                        console.log('Prediction 요청 실패: ', predictionResponse.status);
+                    }
+                } catch (error) {
+                    console.log('Prediction 요청 중 오류 발생: ', error);
+                }
+
                 const newBookmark = await client.graphql({
                     query: createBookmark,
                     variables: {
@@ -130,8 +151,8 @@ export default function Home({ updateAuthState }) {
                             link: linkData,
                             image: ogImage || 'No image',
                             title: ogTitle || 'No title',
-                            description: ogDescription || 'No description',
-                            cat: 'Uncategorized'
+                            description: ogDescription || ' ',
+                            cat: predictedCategory // 예측값으로 카테고리 설정
                         }
                     }
                 });
