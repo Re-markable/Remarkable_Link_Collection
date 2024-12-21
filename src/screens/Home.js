@@ -1,17 +1,22 @@
 import { View, Text, Dimensions, Image, Platform, Modal, Button, Alert } from 'react-native'
-import React, { useState, useEffect, useCallback } from 'react'
-import { StyleSheet } from 'react-native'
+import React, { useState, useEffect, useCallback, useRef } from 'react'
+import { StyleSheet, TouchableOpacity } from 'react-native'
 import AntDesign from '@expo/vector-icons/AntDesign';
-import { TouchableOpacity } from 'react-native';
-import { signOut, getCurrentUser } from 'aws-amplify/auth';
-import ShareMenu from 'react-native-share-menu';
 import { parseDocument } from 'htmlparser2';
+import ShareMenu from 'react-native-share-menu';
+
+import { signOut, getCurrentUser } from 'aws-amplify/auth';
+import { generateClient } from 'aws-amplify/api';
+import { createBookmark } from '../graphql/mutations';
 
 import Colors from '../utils/Colors';
 import Divider from '../components/Divider'
 import CustomModal from '../components/CustomModal';
 import HomeLinkList from '../components/HomeLinkList';
 import RecommendationList from '../components/RecommendationList'
+
+import awsconfig from '../../src/aws-exports';
+
 
 const data = [
     { key: 'fashion', value: '패션' },
@@ -26,31 +31,37 @@ const data = [
 ];
 
 export default function Home({ updateAuthState }) {
-    const [userInfo, setUserInfo] = useState({
-        name: '',
+    const client = generateClient({
+        region: awsconfig.aws_appsync_region,
+        url: awsconfig.aws_appsync_graphqlEndpoint,
+        auth: {
+            type: awsconfig.aws_appsync_authenticationType,
+            jwtToken: async () => (await Auth.currentSession()).getIdToken().getJwtToken(),
+            apiKey: awsconfig.aws_appsync_apiKey,
+        },
     });
+
+    const [user, setUser] = useState(null);
     const [modalVisible, setModalVisible] = useState(false);
     const [profileModalVisible, setProfileModalVisible] = useState(false);
     const [selectedCategories, setSelectedCategories] = useState([]);
     const [isAddingBookmark, setIsAddingBookmark] = useState(false);
+    const refreshBookmarksRef = useRef(null);
 
     useEffect(() => {
         async function fetchUser() {
             try {
-                const userData = await getCurrentUser();
-                setUserInfo({
-                    name: userData.username,
-                });
-                console.log('User data:', userData);
+            const userData = await getCurrentUser();
+            setUser(userData);
+            console.log('User data:', userData);
             } catch (error) {
-                console.error('Error fetching user:', error);
-                Alert.alert('Error', 'Failed to fetch user data. Please try logging in again.');
+            console.log('Error fetching user: ', error);
+            Alert.alert('Error', 'Failed to fetch user data. Please try logging in again.');
             }
         }
-
         fetchUser();
     }, []);
-
+    
     const handleCategoriesSelect = (categories) => {
         setSelectedCategories(categories);
         setModalVisible(false);
@@ -66,6 +77,10 @@ export default function Home({ updateAuthState }) {
         }
     }
 
+    const setRefreshBookmarks = (refreshFunc) => {
+        refreshBookmarksRef.current = refreshFunc;
+    };
+
     const handleShare = useCallback((item) => {
         if (!item || !item.data || !item.data[0] || !item.data[0].data) {
             return;
@@ -75,8 +90,7 @@ export default function Home({ updateAuthState }) {
         console.log('linkData: ', linkData);
 
         async function addData() {
-            if (!linkData || isAddingBookmark) {
-                console.log('Missing linkData or already adding bookmark:', { linkData, isAddingBookmark });
+            if (!linkData || !user?.userId || isAddingBookmark) {
                 return;
             }
 
@@ -87,7 +101,9 @@ export default function Home({ updateAuthState }) {
                 const html = await response.text();
                 const document = parseDocument(html); // htmlparser2의 parseDocument 사용
 
-                const metaTags = document.children.filter(node => node.name === 'meta');
+                // head 태그 추출 및 meta 태그 필터링
+                const head = document.children.find((node) => node.name === 'html')?.children.find((node) => node.name === 'head');
+                const metaTags = head?.children.filter((node) => node.name === 'meta') || [];
 
                 const getMetaContent = (property) => {
                     const tag = metaTags.find(tag => tag.attribs && tag.attribs.property === property);
@@ -99,18 +115,27 @@ export default function Home({ updateAuthState }) {
                 const ogImage = getMetaContent('og:image') || 'No image';
                 const ogSiteName = getMetaContent('og:site_name') || 'Unknown Site';
 
-                const newBookmark = {
-                    userid: userInfo.name,
-                    siteName: ogSiteName,
-                    link: linkData,
-                    image: ogImage,
-                    title: ogTitle,
-                    description: ogDescription,
-                    cat: 'Uncategorized'
-                };
+                const newBookmark = await client.graphql({
+                    query: createBookmark,
+                    variables: {
+                        input: {
+                            userid: user.userId,
+                            siteName: ogSiteName || ogTitle || 'Unknown Site',
+                            link: linkData,
+                            image: ogImage && ogImage[0] ? ogImage[0].url : 'No image',
+                            title: ogTitle || 'No title',
+                            description: ogDescription || 'No description',
+                            cat: 'Uncategorized'
+                        }
+                    }
+                });
 
                 console.log('Data added successfully: ', newBookmark);
                 Alert.alert('Success', 'Bookmark added successfully!');
+
+                if (refreshBookmarksRef.current) {
+                  await refreshBookmarksRef.current();
+                }
             } catch (error) {
                 console.log('Error adding data: ', error);
                 Alert.alert('Error', 'Failed to add bookmark. Please try again.');
@@ -120,7 +145,7 @@ export default function Home({ updateAuthState }) {
         }
 
         addData();
-    }, [userInfo, isAddingBookmark]);
+    }, [user, client, isAddingBookmark]);
 
     useEffect(() => {
         ShareMenu.getInitialShare(handleShare);
@@ -179,7 +204,7 @@ export default function Home({ updateAuthState }) {
             {/* Link List */}
             <View style={styles.linkList}>
                 <View style={{ height: 18 }}></View>
-                <HomeLinkList selectedCategories={selectedCategories} />
+                <HomeLinkList selectedCategories={selectedCategories} onRefreshBookmarks={setRefreshBookmarks} />
 
                 <Divider />
 
@@ -204,7 +229,7 @@ export default function Home({ updateAuthState }) {
                 <View style={styles.modalOverlay}>
                     <View style={styles.modalContainer}>
                         <Text style={styles.modalTitle}>User Profile</Text>
-                        <Text style={styles.modalText}>이름: {userInfo.name}</Text>
+                        <Text style={styles.modalText}>이름: {user?.username}</Text>
                         <View style={styles.modalButtons}>
                             <Button title="로그아웃" onPress={handleSignOut} />
                             <Button title="취소" onPress={() => setProfileModalVisible(false)} />
