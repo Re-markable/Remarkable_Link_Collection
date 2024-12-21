@@ -250,7 +250,7 @@ export default function Home({ updateAuthState }) {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        paddingTop: 30,
+        paddingTop: 44,
         marginTop: 5,
         borderTopLeftRadius: 20,
         borderTopRightRadius: 20,
@@ -267,7 +267,7 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'flex-end',
-        paddingTop: 25,
+        paddingTop: 15,
         paddingVertical: 10,
         borderBottomEndRadius: 15,
     },

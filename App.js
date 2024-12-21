@@ -39,7 +39,7 @@ const AuthenticationNavigator = props => {
 // 성공적으로 로그인한 경우 -> Home
 const AppNavigator = props => {
   return (
-    <AppStack.Navigator>
+    <AppStack.Navigator screenOptions={{ headerShown: false }}>
       <AppStack.Screen name="Home">
         {screenProps => (
           <Home {...screenProps} updateAuthState={props.updateAuthState} />
