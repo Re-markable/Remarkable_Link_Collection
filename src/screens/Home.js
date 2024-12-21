@@ -112,9 +112,15 @@ export default function Home({ updateAuthState }) {
 
                 const ogTitle = getMetaContent('og:title') || 'No title';
                 const ogDescription = getMetaContent('og:description') || 'No description';
-                const ogImage = getMetaContent('og:image') || 'No image';
+                let ogImage = getMetaContent('og:image') || 'No image';
                 const ogSiteName = getMetaContent('og:site_name') || 'Unknown Site';
 
+                // 상대 경로 이미지 처리
+                if (ogImage && !ogImage.startsWith('http')) {
+                    const baseUrl = new URL(linkData);
+                    ogImage = new URL(ogImage, baseUrl.origin).href;
+                }
+                
                 const newBookmark = await client.graphql({
                     query: createBookmark,
                     variables: {
@@ -122,7 +128,7 @@ export default function Home({ updateAuthState }) {
                             userid: user.userId,
                             siteName: ogSiteName || ogTitle || 'Unknown Site',
                             link: linkData,
-                            image: ogImage && ogImage[0] ? ogImage[0].url : 'No image',
+                            image: ogImage || 'No image',
                             title: ogTitle || 'No title',
                             description: ogDescription || 'No description',
                             cat: 'Uncategorized'
