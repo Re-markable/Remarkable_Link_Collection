@@ -4,6 +4,7 @@ import { StyleSheet } from 'react-native'
 import AntDesign from '@expo/vector-icons/AntDesign';
 import { TouchableOpacity } from 'react-native';
 import { fetchUserAttributes } from '@aws-amplify/auth';
+import { signOut, getCurrentUser } from 'aws-amplify/auth';
 
 import Colors from '../utils/Colors';
 import Divider from '../components/Divider'
@@ -23,7 +24,7 @@ const data = [
     { key: 'edu', value: '학습' },
 ];
 
-export default function Home() {
+export default function Home({ updateAuthState }) {
     const [modalVisible, setModalVisible] = useState(false);
     const [profileModalVisible, setProfileModalVisible] = useState(false);  // 유저 프로필 모달 상태 추가
     const [selectedCategories, setSelectedCategories] = useState([]);
@@ -38,11 +39,15 @@ export default function Home() {
         setModalVisible(false);
     };
 
-    const handleLogout = () => {
-        // 로그아웃 로직 (예시)
-        console.log('로그아웃');
-        setProfileModalVisible(false);  // 프로필 모달 닫기
-    };
+    async function handleSignOut() {
+        try {
+          await signOut();
+          updateAuthState('loggedOut');
+        } catch (error) {
+          console.log('Error signing out: ', error);
+          Alert.alert('Error', 'Failed to sign out. Please try again.');
+        }
+      }
 
     return (
         <View style={styles.container}>
@@ -118,7 +123,7 @@ export default function Home() {
                         <Text style={styles.modalText}>이메일: {userInfo.email}</Text>
 
                         <View style={styles.modalButtons}>
-                            <Button title="로그아웃" onPress={handleLogout} />
+                            <Button title="로그아웃" onPress={handleSignOut} />
                             <Button title="취소" onPress={() => setProfileModalVisible(false)} />
                         </View>
                     </View>
