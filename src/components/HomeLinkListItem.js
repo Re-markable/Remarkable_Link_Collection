@@ -35,6 +35,7 @@ export default function HomeLinkListItem({ item, onDelete }) {
       <Image source={{ uri: item.image }} style={styles.image} />
 
       <TouchableOpacity
+        style={styles.textWrapper}
         onPress={handlePress}
         onLongPress={handleLongPress}
         activeOpacity={0.7}
@@ -84,19 +85,25 @@ const styles = StyleSheet.create({
     marginRight: 10,
     borderRadius: 20,
   },
+  textWrapper: {
+    flex: 1,
+  },
   textContainer: {
     flex: 1,
     justifyContent: 'center',
   },
   textTitle: {
     fontWeight: 'bold',
-    fontSize: 15,
+    fontSize: 14,
     marginBottom: 5,
+    flexShrink: 1,
   },
   textDescription: {
-    fontSize: 14,
-    lineHeight: 20,
-    paddingRight: 5,
+    fontSize: 12,
+    lineHeight: 18,
+    color: 'gray',
+    marginRight: 10,
+    flexShrink: 1,
   },
   modalOverlay: {
     flex: 1,

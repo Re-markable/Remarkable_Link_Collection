@@ -1,16 +1,22 @@
-import { View, Text, Dimensions, Image, Platform, Modal, Button } from 'react-native'
-import React, { useState } from 'react'
-import { StyleSheet } from 'react-native'
+import { View, Text, Dimensions, Image, Platform, Modal, Button, Alert } from 'react-native'
+import React, { useState, useEffect, useCallback, useRef } from 'react'
+import { StyleSheet, TouchableOpacity } from 'react-native'
 import AntDesign from '@expo/vector-icons/AntDesign';
-import { TouchableOpacity } from 'react-native';
-import { fetchUserAttributes } from '@aws-amplify/auth';
+import { parseDocument } from 'htmlparser2';
+import ShareMenu from 'react-native-share-menu';
+
 import { signOut, getCurrentUser } from 'aws-amplify/auth';
+import { generateClient } from 'aws-amplify/api';
+import { createBookmark } from '../graphql/mutations';
 
 import Colors from '../utils/Colors';
 import Divider from '../components/Divider'
 import CustomModal from '../components/CustomModal';
 import HomeLinkList from '../components/HomeLinkList';
 import RecommendationList from '../components/RecommendationList'
+
+import awsconfig from '../../src/aws-exports';
+
 
 const data = [
     { key: 'fashion', value: '패션' },
@@ -25,15 +31,37 @@ const data = [
 ];
 
 export default function Home({ updateAuthState }) {
-    const [modalVisible, setModalVisible] = useState(false);
-    const [profileModalVisible, setProfileModalVisible] = useState(false);  // 유저 프로필 모달 상태 추가
-    const [selectedCategories, setSelectedCategories] = useState([]);
-    const [userInfo, setUserInfo] = useState({
-        // login 연결하면서 수정
-        name: '홍길동',  // 예시 유저명
-        email: 'hong@example.com',  // 예시 이메일
+    const client = generateClient({
+        region: awsconfig.aws_appsync_region,
+        url: awsconfig.aws_appsync_graphqlEndpoint,
+        auth: {
+            type: awsconfig.aws_appsync_authenticationType,
+            jwtToken: async () => (await Auth.currentSession()).getIdToken().getJwtToken(),
+            apiKey: awsconfig.aws_appsync_apiKey,
+        },
     });
 
+    const [user, setUser] = useState(null);
+    const [modalVisible, setModalVisible] = useState(false);
+    const [profileModalVisible, setProfileModalVisible] = useState(false);
+    const [selectedCategories, setSelectedCategories] = useState([]);
+    const [isAddingBookmark, setIsAddingBookmark] = useState(false);
+    const refreshBookmarksRef = useRef(null);
+
+    useEffect(() => {
+        async function fetchUser() {
+            try {
+            const userData = await getCurrentUser();
+            setUser(userData);
+            console.log('User data:', userData);
+            } catch (error) {
+            console.log('Error fetching user: ', error);
+            Alert.alert('Error', 'Failed to fetch user data. Please try logging in again.');
+            }
+        }
+        fetchUser();
+    }, []);
+    
     const handleCategoriesSelect = (categories) => {
         setSelectedCategories(categories);
         setModalVisible(false);
@@ -41,13 +69,100 @@ export default function Home({ updateAuthState }) {
 
     async function handleSignOut() {
         try {
-          await signOut();
-          updateAuthState('loggedOut');
+            await signOut();
+            updateAuthState('loggedOut');
         } catch (error) {
-          console.log('Error signing out: ', error);
-          Alert.alert('Error', 'Failed to sign out. Please try again.');
+            console.log('Error signing out: ', error);
+            Alert.alert('Error', 'Failed to sign out. Please try again.');
         }
-      }
+    }
+
+    const setRefreshBookmarks = (refreshFunc) => {
+        refreshBookmarksRef.current = refreshFunc;
+    };
+
+    const handleShare = useCallback((item) => {
+        if (!item || !item.data || !item.data[0] || !item.data[0].data) {
+            return;
+        }
+
+        const linkData = item.data[0].data;
+        console.log('linkData: ', linkData);
+
+        async function addData() {
+            if (!linkData || !user?.userId || isAddingBookmark) {
+                return;
+            }
+
+            setIsAddingBookmark(true);
+
+            try {
+                const response = await fetch(linkData);
+                const html = await response.text();
+                const document = parseDocument(html); // htmlparser2의 parseDocument 사용
+
+                // head 태그 추출 및 meta 태그 필터링
+                const head = document.children.find((node) => node.name === 'html')?.children.find((node) => node.name === 'head');
+                const metaTags = head?.children.filter((node) => node.name === 'meta') || [];
+
+                const getMetaContent = (property) => {
+                    const tag = metaTags.find(tag => tag.attribs && tag.attribs.property === property);
+                    return tag ? tag.attribs.content : null;
+                };
+
+                const ogTitle = getMetaContent('og:title') || 'No title';
+                const ogDescription = getMetaContent('og:description') || 'No description';
+                let ogImage = getMetaContent('og:image') || 'No image';
+                const ogSiteName = getMetaContent('og:site_name') || 'Unknown Site';
+
+                // 상대 경로 이미지 처리
+                if (ogImage && !ogImage.startsWith('http')) {
+                    const baseUrl = new URL(linkData);
+                    ogImage = new URL(ogImage, baseUrl.origin).href;
+                }
+                
+                const newBookmark = await client.graphql({
+                    query: createBookmark,
+                    variables: {
+                        input: {
+                            userid: user.userId,
+                            siteName: ogSiteName || ogTitle || 'Unknown Site',
+                            link: linkData,
+                            image: ogImage || 'No image',
+                            title: ogTitle || 'No title',
+                            description: ogDescription || 'No description',
+                            cat: 'Uncategorized'
+                        }
+                    }
+                });
+
+                console.log('Data added successfully: ', newBookmark);
+                Alert.alert('Success', 'Bookmark added successfully!');
+
+                if (refreshBookmarksRef.current) {
+                  await refreshBookmarksRef.current();
+                }
+            } catch (error) {
+                console.log('Error adding data: ', error);
+                Alert.alert('Error', 'Failed to add bookmark. Please try again.');
+            } finally {
+                setIsAddingBookmark(false);
+            }
+        }
+
+        addData();
+    }, [user, client, isAddingBookmark]);
+
+    useEffect(() => {
+        ShareMenu.getInitialShare(handleShare);
+    }, [handleShare]);
+
+    useEffect(() => {
+        const listener = ShareMenu.addNewShareListener(handleShare);
+        return () => {
+            listener.remove();
+        };
+    }, [handleShare]);
 
     return (
         <View style={styles.container}>
@@ -64,7 +179,8 @@ export default function Home({ updateAuthState }) {
                     {/* profile image & setting */}
                     <TouchableOpacity
                         onPress={() => {
-                            setProfileModalVisible(true)}}  // 프로필 모달 열기
+                            setProfileModalVisible(true)
+                        }}
                         style={{ flexDirection: 'row', paddingTop: 5 }}
                     >
                         <Image
@@ -94,7 +210,7 @@ export default function Home({ updateAuthState }) {
             {/* Link List */}
             <View style={styles.linkList}>
                 <View style={{ height: 18 }}></View>
-                <HomeLinkList selectedCategories={selectedCategories} />
+                <HomeLinkList selectedCategories={selectedCategories} onRefreshBookmarks={setRefreshBookmarks} />
 
                 <Divider />
 
@@ -119,9 +235,7 @@ export default function Home({ updateAuthState }) {
                 <View style={styles.modalOverlay}>
                     <View style={styles.modalContainer}>
                         <Text style={styles.modalTitle}>User Profile</Text>
-                        <Text style={styles.modalText}>이름: {userInfo.name}</Text>
-                        <Text style={styles.modalText}>이메일: {userInfo.email}</Text>
-
+                        <Text style={styles.modalText}>이름: {user?.username}</Text>
                         <View style={styles.modalButtons}>
                             <Button title="로그아웃" onPress={handleSignOut} />
                             <Button title="취소" onPress={() => setProfileModalVisible(false)} />
@@ -136,7 +250,7 @@ export default function Home({ updateAuthState }) {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        paddingTop: 30,
+        paddingTop: 44,
         marginTop: 5,
         borderTopLeftRadius: 20,
         borderTopRightRadius: 20,
@@ -153,7 +267,7 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'flex-end',
-        paddingTop: 25,
+        paddingTop: 15,
         paddingVertical: 10,
         borderBottomEndRadius: 15,
     },

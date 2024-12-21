@@ -16,7 +16,7 @@ import { listBookmarks } from '../graphql/queries.js';
 
 const client = generateClient();
 
-export default function HomeLinkList({ selectedCategories }) {
+export default function HomeLinkList({ selectedCategories, onRefreshBookmarks }) {
   const [bookmarks, setBookmarks] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [filteredData, setFilteredData] = useState([]);
@@ -35,13 +35,20 @@ export default function HomeLinkList({ selectedCategories }) {
         query: listBookmarks,
       });
       const bookmarkList = bookmarkData.data.listBookmarks.items;
-      console.log('bookmark list', bookmarkList);
+      console.log('Fetch bookmark list');
       setBookmarks(bookmarkList);
     } catch (error) {
       console.log('error on fetching bookmarks', error);
     }
   };
 
+  // onRefreshBookmarks로 외부에 refreshBookmarks 함수 전달
+  useEffect(() => {
+    if (onRefreshBookmarks) {
+      onRefreshBookmarks(fetchBookmarks);
+    }
+  }, [onRefreshBookmarks]);
+  
   // filter categories
   useEffect(() => {
     const newFilteredData =

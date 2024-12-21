@@ -8,7 +8,6 @@ const client = generateClient()
 const allBookmarks = await client.graphql({
     query: listBookmarks
 });
-console.log(allBookmark);
 
 // Get a specific item
 const oneBookmark = await client.graphql({
