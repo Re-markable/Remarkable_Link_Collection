@@ -35,7 +35,7 @@ export default function HomeLinkList({ selectedCategories }) {
         query: listBookmarks,
       });
       const bookmarkList = bookmarkData.data.listBookmarks.items;
-      console.log('bookmark list', bookmarkList);
+      console.log('Fetch bookmark list');
       setBookmarks(bookmarkList);
     } catch (error) {
       console.log('error on fetching bookmarks', error);
