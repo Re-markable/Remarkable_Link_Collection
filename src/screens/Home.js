@@ -112,6 +112,7 @@ export default function Home({ updateAuthState }) {
 
                 const ogTitle = getMetaContent('og:title') || 'No title';
                 const ogDescription = getMetaContent('og:description') || ' ';
+
                 let ogImage = getMetaContent('og:image') || 'No image';
                 const ogSiteName = getMetaContent('og:site_name') || 'Unknown Site';
 
