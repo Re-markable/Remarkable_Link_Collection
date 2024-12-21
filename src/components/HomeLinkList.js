@@ -23,6 +23,7 @@ export default function HomeLinkList({ selectedCategories, onRefreshBookmarks })
   const [currentPageData, setCurrentPageData] = useState([]);
   const itemsPerPage = 7;
   const flatListRef = useRef(null);
+  const [sortDirection, setSortDirection] = useState("DESC");
 
   // mount data
   useEffect(() => {
@@ -34,9 +35,19 @@ export default function HomeLinkList({ selectedCategories, onRefreshBookmarks })
       const bookmarkData = await client.graphql({
         query: listBookmarks,
       });
-      const bookmarkList = bookmarkData.data.listBookmarks.items;
-      console.log('Fetch bookmark list');
+      let bookmarkList = bookmarkData.data.listBookmarks.items;
+
+      // 정렬 방향에 따라 정렬
+      bookmarkList = bookmarkList.sort((a, b) => {
+        if (sortDirection === "DESC") {
+            return new Date(b.createdAt) - new Date(a.createdAt);
+        } else {
+            return new Date(a.createdAt) - new Date(b.createdAt);
+        }
+      });
+
       setBookmarks(bookmarkList);
+      console.log(`Fetch bookmark list sorted by createdAt (${sortDirection})`);
     } catch (error) {
       console.log('error on fetching bookmarks', error);
     }
