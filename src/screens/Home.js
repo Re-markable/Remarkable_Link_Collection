@@ -1,10 +1,11 @@
-import { View, Text, Dimensions, Image, Platform, Modal, Button } from 'react-native'
-import React, { useState, useEffect } from 'react'
+import { View, Text, Dimensions, Image, Platform, Modal, Button, Alert } from 'react-native'
+import React, { useState, useEffect, useCallback } from 'react'
 import { StyleSheet } from 'react-native'
 import AntDesign from '@expo/vector-icons/AntDesign';
 import { TouchableOpacity } from 'react-native';
-import { fetchUserAttributes } from '@aws-amplify/auth';
 import { signOut, getCurrentUser } from 'aws-amplify/auth';
+import ShareMenu from 'react-native-share-menu';
+import { parseDocument } from 'htmlparser2';
 
 import Colors from '../utils/Colors';
 import Divider from '../components/Divider'
@@ -25,25 +26,26 @@ const data = [
 ];
 
 export default function Home({ updateAuthState }) {
-    const [modalVisible, setModalVisible] = useState(false);
-    const [profileModalVisible, setProfileModalVisible] = useState(false);  // 유저 프로필 모달 상태 추가
-    const [selectedCategories, setSelectedCategories] = useState([]);
     const [userInfo, setUserInfo] = useState({
         name: '',
     });
+    const [modalVisible, setModalVisible] = useState(false);
+    const [profileModalVisible, setProfileModalVisible] = useState(false);
+    const [selectedCategories, setSelectedCategories] = useState([]);
+    const [isAddingBookmark, setIsAddingBookmark] = useState(false);
 
     useEffect(() => {
         async function fetchUser() {
-        try {
-            const userData = await getCurrentUser(); // 현재 사용자 정보 가져오기
-            setUserInfo({
-                name: userData.username, // 사용자 이름
-            });
-            console.log('User data:', userData);
-        } catch (error) {
-            console.error('Error fetching user:', error);
-            Alert.alert('Error', 'Failed to fetch user data. Please try logging in again.');
-        }
+            try {
+                const userData = await getCurrentUser();
+                setUserInfo({
+                    name: userData.username,
+                });
+                console.log('User data:', userData);
+            } catch (error) {
+                console.error('Error fetching user:', error);
+                Alert.alert('Error', 'Failed to fetch user data. Please try logging in again.');
+            }
         }
 
         fetchUser();
@@ -56,13 +58,80 @@ export default function Home({ updateAuthState }) {
 
     async function handleSignOut() {
         try {
-          await signOut();
-          updateAuthState('loggedOut');
+            await signOut();
+            updateAuthState('loggedOut');
         } catch (error) {
-          console.log('Error signing out: ', error);
-          Alert.alert('Error', 'Failed to sign out. Please try again.');
+            console.log('Error signing out: ', error);
+            Alert.alert('Error', 'Failed to sign out. Please try again.');
         }
-      }
+    }
+
+    const handleShare = useCallback((item) => {
+        if (!item || !item.data || !item.data[0] || !item.data[0].data) {
+            return;
+        }
+
+        const linkData = item.data[0].data;
+        console.log('linkData: ', linkData);
+
+        async function addData() {
+            if (!linkData || isAddingBookmark) {
+                console.log('Missing linkData or already adding bookmark:', { linkData, isAddingBookmark });
+                return;
+            }
+
+            setIsAddingBookmark(true);
+
+            try {
+                const response = await fetch(linkData);
+                const html = await response.text();
+                const document = parseDocument(html); // htmlparser2의 parseDocument 사용
+
+                const metaTags = document.children.filter(node => node.name === 'meta');
+
+                const getMetaContent = (property) => {
+                    const tag = metaTags.find(tag => tag.attribs && tag.attribs.property === property);
+                    return tag ? tag.attribs.content : null;
+                };
+
+                const ogTitle = getMetaContent('og:title') || 'No title';
+                const ogDescription = getMetaContent('og:description') || 'No description';
+                const ogImage = getMetaContent('og:image') || 'No image';
+                const ogSiteName = getMetaContent('og:site_name') || 'Unknown Site';
+
+                const newBookmark = {
+                    userid: userInfo.name,
+                    siteName: ogSiteName,
+                    link: linkData,
+                    image: ogImage,
+                    title: ogTitle,
+                    description: ogDescription,
+                    cat: 'Uncategorized'
+                };
+
+                console.log('Data added successfully: ', newBookmark);
+                Alert.alert('Success', 'Bookmark added successfully!');
+            } catch (error) {
+                console.log('Error adding data: ', error);
+                Alert.alert('Error', 'Failed to add bookmark. Please try again.');
+            } finally {
+                setIsAddingBookmark(false);
+            }
+        }
+
+        addData();
+    }, [userInfo, isAddingBookmark]);
+
+    useEffect(() => {
+        ShareMenu.getInitialShare(handleShare);
+    }, [handleShare]);
+
+    useEffect(() => {
+        const listener = ShareMenu.addNewShareListener(handleShare);
+        return () => {
+            listener.remove();
+        };
+    }, [handleShare]);
 
     return (
         <View style={styles.container}>
@@ -79,7 +148,8 @@ export default function Home({ updateAuthState }) {
                     {/* profile image & setting */}
                     <TouchableOpacity
                         onPress={() => {
-                            setProfileModalVisible(true)}}  // 프로필 모달 열기
+                            setProfileModalVisible(true)
+                        }}
                         style={{ flexDirection: 'row', paddingTop: 5 }}
                     >
                         <Image
