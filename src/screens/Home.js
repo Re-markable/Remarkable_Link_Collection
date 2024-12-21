@@ -8,6 +8,7 @@ import ShareMenu from 'react-native-share-menu';
 import { signOut, getCurrentUser } from 'aws-amplify/auth';
 import { generateClient } from 'aws-amplify/api';
 import { createBookmark } from '../graphql/mutations';
+import { listUserBookmarks } from '../graphql/queries';
 
 import Colors from '../utils/Colors';
 import Divider from '../components/Divider'
@@ -81,6 +82,58 @@ export default function Home({ updateAuthState }) {
         refreshBookmarksRef.current = refreshFunc;
     };
 
+    useEffect(() => {
+        if (user) {
+            fetchCategoryStats();
+        }
+    }, [user]);
+
+    const fetchCategoryStats = async () => {
+        try {
+            const { data } = await client.graphql({
+                query: listUserBookmarks,
+                variables: { userid: user.userId },
+            });
+
+            const bookmarks = data.listBookmarks.items;
+
+            if (!bookmarks || bookmarks.length === 0) {
+                console.log("No bookmarks found.");
+                Alert.alert("알림", "저장된 북마크가 없습니다.");
+                return;
+            }
+
+            analyzeCategories(bookmarks);
+        } catch (error) {
+            console.error("Error fetching bookmarks:", error);
+            Alert.alert("오류", "북마크 데이터를 가져오는 중 문제가 발생했습니다.");
+        }
+    };
+
+    const analyzeCategories = (bookmarks) => {
+        const categoryCounts = bookmarks.reduce((acc, bookmark) => {
+            const category = bookmark.cat || "Uncategorized";
+            acc[category] = (acc[category] || 0) + 1;
+            return acc;
+        }, {});
+
+        const total = bookmarks.length;
+        const categoryStats = Object.entries(categoryCounts).map(([category, count]) => ({
+            category,
+            count,
+            percentage: ((count / total) * 100).toFixed(2),
+        }));
+
+        const sortedStats = categoryStats.sort((a, b) => b.count - a.count);
+        const topCategory = sortedStats[0];
+
+        console.log("카테고리 통계:", categoryStats);
+        console.log(
+            "카테고리 분석 결과",
+            `가장 많이 저장된 카테고리: ${topCategory.category} (${topCategory.percentage}%)`
+        );
+    };
+
     const handleShare = useCallback((item) => {
         if (!item || !item.data || !item.data[0] || !item.data[0].data) {
             return;
@@ -125,7 +178,7 @@ export default function Home({ updateAuthState }) {
                 // POST 요청으로 prediction 값 가져오기
                 let predictedCategory = 'Uncategorized';
                 try {
-                    const predictionResponse = await fetch('http://15.168.237.201:5000/model', {
+                    const predictionResponse = await fetch('http://15.152.45.240:5000/model', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',

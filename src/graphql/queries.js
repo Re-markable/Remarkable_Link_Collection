@@ -18,6 +18,15 @@ export const getBookmark = /* GraphQL */ `
     }
   }
 `;
+export const listUserBookmarks = /* GraphQL */ `
+  query ListUserBookmarks($userid: String!) {
+    listBookmarks(filter: { userid: { eq: $userid } }) {
+      items {
+          cat
+      }
+    }
+  }
+`;
 export const listBookmarks = /* GraphQL */ `
   query ListBookmarks(
     $filter: ModelBookmarkFilterInput
