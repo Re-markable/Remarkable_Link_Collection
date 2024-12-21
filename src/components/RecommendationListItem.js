@@ -17,12 +17,12 @@ const styles = StyleSheet.create({
     flexDirection: 'column',
     alignItems: 'center',
     paddingVertical: 5,
-    marginHorizontal: 5,
-    width: 100, // 컨테이너의 너비를 고정
+    marginHorizontal: 2,
+    width: 84, // 컨테이너의 너비를 고정
   },
   image: {
-    width: 80,
-    height: 80,
+    width: 70,
+    height: 70,
     borderRadius: 20,
     marginBottom: 5, // 이미지와 텍스트 사이의 간격
   },
