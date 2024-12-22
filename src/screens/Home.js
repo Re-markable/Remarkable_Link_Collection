@@ -8,6 +8,7 @@ import ShareMenu from 'react-native-share-menu';
 import { signOut, getCurrentUser } from 'aws-amplify/auth';
 import { generateClient } from 'aws-amplify/api';
 import { createBookmark } from '../graphql/mutations';
+import { listUserBookmarks, getFilteredBookmarks } from '../graphql/queries';
 
 import Colors from '../utils/Colors';
 import Divider from '../components/Divider'
@@ -47,16 +48,18 @@ export default function Home({ updateAuthState }) {
     const [selectedCategories, setSelectedCategories] = useState([]);
     const [isAddingBookmark, setIsAddingBookmark] = useState(false);
     const refreshBookmarksRef = useRef(null);
+    const [topCategory, setTopCategory] = useState(null);
+    const [recentBookmarks, setRecentBookmarks] = useState([]);
 
     useEffect(() => {
         async function fetchUser() {
             try {
-            const userData = await getCurrentUser();
-            setUser(userData);
-            console.log('User data:', userData);
+                const userData = await getCurrentUser();
+                setUser(userData);
+                //console.log('User data:', userData);
             } catch (error) {
-            console.log('Error fetching user: ', error);
-            Alert.alert('Error', 'Failed to fetch user data. Please try logging in again.');
+                console.log('Error fetching user: ', error);
+                Alert.alert('Error', 'Failed to fetch user data. Please try logging in again.');
             }
         }
         fetchUser();
@@ -79,6 +82,76 @@ export default function Home({ updateAuthState }) {
 
     const setRefreshBookmarks = (refreshFunc) => {
         refreshBookmarksRef.current = refreshFunc;
+    };
+
+    useEffect(() => {
+        if (user) {
+            fetchCategoryStats();
+        }
+    }, [user]);
+
+    const fetchCategoryStats = async () => {
+        try {
+            const { data } = await client.graphql({
+                query: listUserBookmarks,
+                variables: { userid: user.userId },
+            });
+
+            const bookmarks = data.listBookmarks.items;
+
+            if (!bookmarks || bookmarks.length === 0) {
+                console.log("No bookmarks found.");
+                Alert.alert("알림", "저장된 북마크가 없습니다.");
+                return;
+            }
+
+            analyzeCategories(bookmarks);
+        } catch (error) {
+            console.error("Error fetching bookmarks:", error);
+            Alert.alert("오류", "북마크 데이터를 가져오는 중 문제가 발생했습니다.");
+        }
+    };
+
+    const analyzeCategories = async (bookmarks) => {
+        const categoryCounts = bookmarks.reduce((acc, bookmark) => {
+            const category = bookmark.cat || "Uncategorized";
+            acc[category] = (acc[category] || 0) + 1;
+            return acc;
+        }, {});
+    
+        const sortedStats = Object.entries(categoryCounts)
+            .map(([category, count]) => ({ category, count }))
+            .sort((a, b) => b.count - a.count);
+    
+        const topCategory = sortedStats[0]?.category; // 문자열 값만 저장
+        setTopCategory(topCategory);
+    
+        if (topCategory) {
+            const recentBookmarksData = await fetchRecentBookmarksForCategory(topCategory);
+            setRecentBookmarks(recentBookmarksData);
+        }
+    };
+    
+    const fetchRecentBookmarksForCategory = async (category) => {
+        if (!category || !user?.userId) return []; // 방어 코드 추가
+    
+        try {
+            const { data } = await client.graphql({
+                query: getFilteredBookmarks,
+                variables: {
+                    category, // 카테고리 값 전달
+                    currentUserId: user.userId, // 현재 유저 ID 전달
+                },
+            });
+    
+            const bookmarks = data?.listBookmarks?.items || [];
+            return bookmarks
+                .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)) // 정렬
+                .slice(0, 5); // 상위 5개만 반환
+        } catch (error) {
+            console.error("Error fetching bookmarks:", error);
+            return [];
+        }
     };
 
     const handleShare = useCallback((item) => {
@@ -125,7 +198,7 @@ export default function Home({ updateAuthState }) {
                 // POST 요청으로 prediction 값 가져오기
                 let predictedCategory = 'Uncategorized';
                 try {
-                    const predictionResponse = await fetch('http://15.168.237.201:5000/model', {
+                    const predictionResponse = await fetch('http://15.152.45.240:5000/model', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
@@ -164,6 +237,7 @@ export default function Home({ updateAuthState }) {
                 if (refreshBookmarksRef.current) {
                   await refreshBookmarksRef.current();
                 }
+                fetchCategoryStats();
             } catch (error) {
                 console.log('Error adding data: ', error);
                 Alert.alert('Error', 'Failed to add bookmark. Please try again.');
@@ -236,7 +310,7 @@ export default function Home({ updateAuthState }) {
 
                 <Divider />
 
-                <RecommendationList />
+                <RecommendationList recentBookmarks={recentBookmarks} />
             </View>
 
             {/* categories modal */}

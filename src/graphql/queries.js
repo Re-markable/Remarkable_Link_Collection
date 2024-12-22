@@ -18,13 +18,22 @@ export const getBookmark = /* GraphQL */ `
     }
   }
 `;
+export const listUserBookmarks = /* GraphQL */ `
+  query ListUserBookmarks($userid: String!) {
+    listBookmarks(filter: { userid: { eq: $userid } }) {
+      items {
+          cat
+      }
+    }
+  }
+`;
 export const listBookmarks = /* GraphQL */ `
   query ListBookmarks(
-    $filter: ModelBookmarkFilterInput
-    $limit: Int
+    $userid: String!,
+    $limit: Int,
     $nextToken: String
   ) {
-    listBookmarks(filter: $filter, limit: $limit, nextToken: $nextToken) {
+    listBookmarks(filter: { userid: { eq: $userid } }, limit: $limit, nextToken: $nextToken) {
       items {
         id
         userid
@@ -40,6 +49,28 @@ export const listBookmarks = /* GraphQL */ `
       }
       nextToken
       __typename
+    }
+  }
+`;
+export const getFilteredBookmarks = /* GraphQL */ `
+  query GetFilteredBookmarks($category: String!, $currentUserId: String!) {
+    listBookmarks(
+      filter: {
+        cat: { eq: $category }
+        userid: { ne: $currentUserId }
+      }
+    ) {
+      items {
+        id
+        userid
+        siteName
+        link
+        image
+        title
+        description
+        cat
+        createdAt
+      }
     }
   }
 `;

@@ -1,4 +1,4 @@
-import { View, FlatList, Dimensions } from 'react-native'
+import { View, FlatList, Dimensions, Text } from 'react-native'
 import React from 'react'
 
 import RecommendationListItem from './RecommendationListItem.js';
@@ -11,49 +11,27 @@ Amplify.configure(awsmobile);
 
 const { width } = Dimensions.get('window');
 
-const dummy = [
-  {
-    "image": "https://dummyimage.com/350x350/000/fff",
-    "title": "Recomm Title",
-    "description": "This is Link's Description. This is Link's Description. This is Link's Description."
-  },
-  {
-    "image": "https://dummyimage.com/350x350/000/fff",
-    "title": "Recomm Title",
-    "description": "This is Link's Description. This is Link's Description. This is Link's Description."
-  },
-  {
-    "image": "https://dummyimage.com/350x350/000/fff",
-    "title": "Recomm Title",
-    "description": "This is Link's Description. This is Link's Description. This is Link's Description."
-  },
-  {
-    "image": "https://dummyimage.com/350x350/000/fff",
-    "title": "Recomm Title",
-    "description": "This is Link's Description. This is Link's Description. This is Link's Description."
-  },
-  {
-    "image": "https://dummyimage.com/350x350/000/fff",
-    "title": "Recomm Title",
-    "description": "This is Link's Description. This is Link's Description. This is Link's Description."
-  },
-];
-
-export default function RecommendationList() {
+export default function RecommendationList({ recentBookmarks }) {
   return (
     <View style={{ backgroundColor: Colors.WHITE }}>
-      <FlatList
-        data={dummy}
-        renderItem={({ item }) => <RecommendationListItem item={item} />}
-        keyExtractor={(item, index) => index.toString()}
-        horizontal={true}
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={{ paddingHorizontal: 10 }}
-        snapToInterval={width - 60} // 아이템 너비 + 좌우 패딩
-        decelerationRate="fast"
-        snapToAlignment="center"
-        style={{ paddingTop: 5 }}
-      />
+      {recentBookmarks.length > 0 ? ( 
+        <FlatList
+          data={recentBookmarks}
+          renderItem={({ item }) => <RecommendationListItem item={item} />}
+          keyExtractor={(item, index) => index.toString()}
+          horizontal={true}
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={{ paddingHorizontal: 10 }}
+          snapToInterval={width - 60} // 아이템 너비 + 좌우 패딩
+          decelerationRate="fast"
+          snapToAlignment="center"
+          style={{ paddingTop: 5 }}
+        /> 
+      ) : (
+        <Text style={{ textAlign: 'center', marginVertical: 20 }}>
+            추천할 북마크가 없습니다.
+        </Text>
+      )}
     </View>
   )
 };
