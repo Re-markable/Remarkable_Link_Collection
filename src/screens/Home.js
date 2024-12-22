@@ -1,4 +1,4 @@
-import { View, Text, Dimensions, Image, Platform, Modal, Button, Alert } from 'react-native'
+import { View, Text, Image, Platform, Modal, Button, Alert, Animated } from 'react-native'
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { StyleSheet, TouchableOpacity } from 'react-native'
 import AntDesign from '@expo/vector-icons/AntDesign';
@@ -50,13 +50,25 @@ export default function Home({ updateAuthState }) {
     const refreshBookmarksRef = useRef(null);
     const [topCategory, setTopCategory] = useState(null);
     const [recentBookmarks, setRecentBookmarks] = useState([]);
+    const scrollY = useRef(new Animated.Value(0)).current;
 
+    const headerHeight = scrollY.interpolate({
+        inputRange: [0, 5],
+        outputRange: [50, 0],
+        extrapolate: 'clamp',
+    });
+
+    const headerOpacity = scrollY.interpolate({
+        inputRange: [0, 10],
+        outputRange: [1, -0.8],
+        extrapolate: 'clamp',
+    });
+    
     useEffect(() => {
         async function fetchUser() {
             try {
                 const userData = await getCurrentUser();
                 setUser(userData);
-                //console.log('User data:', userData);
             } catch (error) {
                 console.log('Error fetching user: ', error);
                 Alert.alert('Error', 'Failed to fetch user data. Please try logging in again.');
@@ -172,9 +184,8 @@ export default function Home({ updateAuthState }) {
             try {
                 const response = await fetch(linkData);
                 const html = await response.text();
-                const document = parseDocument(html); // htmlparser2의 parseDocument 사용
+                const document = parseDocument(html);
 
-                // head 태그 추출 및 meta 태그 필터링
                 const head = document.children.find((node) => node.name === 'html')?.children.find((node) => node.name === 'head');
                 const metaTags = head?.children.filter((node) => node.name === 'meta') || [];
 
@@ -183,19 +194,15 @@ export default function Home({ updateAuthState }) {
                     return tag ? tag.attribs.content : null;
                 };
 
+                const ogSiteName = getMetaContent('og:site_name') || 'Unknown Site';
                 const ogTitle = getMetaContent('og:title') || 'No title';
                 const ogDescription = getMetaContent('og:description') || ' ';
-
                 let ogImage = getMetaContent('og:image') || 'No image';
-                const ogSiteName = getMetaContent('og:site_name') || 'Unknown Site';
-
-                // 상대 경로 이미지 처리
                 if (ogImage && !ogImage.startsWith('http')) {
                     const baseUrl = new URL(linkData);
                     ogImage = new URL(ogImage, baseUrl.origin).href;
                 }
                 
-                // POST 요청으로 prediction 값 가져오기
                 let predictedCategory = 'Uncategorized';
                 try {
                     const predictionResponse = await fetch('http://15.152.45.240:5000/model', {
@@ -226,7 +233,7 @@ export default function Home({ updateAuthState }) {
                             image: ogImage || 'No image',
                             title: ogTitle || 'No title',
                             description: ogDescription || ' ',
-                            cat: predictedCategory // 예측값으로 카테고리 설정
+                            cat: predictedCategory
                         }
                     }
                 });
@@ -263,55 +270,64 @@ export default function Home({ updateAuthState }) {
     return (
         <View style={styles.container}>
             {/* header */}
-            <View style={styles.header}>
-                <View style={styles.header1}>
+            <Animated.View style={[
+                styles.header,
+                { height: headerHeight, opacity: headerOpacity },
+                ]}
+            >
+                <Image
+                    source={require('./../../assets/logo.png')}
+                    style={{
+                        width: 30,
+                        height: 30,
+                    }}
+                />
+                
+                <TouchableOpacity
+                    onPress={() => setModalVisible(true)}
+                    style={styles.catBtn}
+                >
+                    <Text>카테고리</Text>
+                    <View style={{ backgroundColor: Colors.WHITE }}>
+                        <AntDesign name="down" size={18} color={Colors.BLACK} />
+                    </View>
+                </TouchableOpacity>
+
+                <View style={{ flex: 3 }}></View>
+
+                <AntDesign name="search1" size={28} color={Colors.BLACK} />
+                
+                {/* profile image & setting */}
+                <TouchableOpacity
+                    onPress={() => {
+                        setProfileModalVisible(true)
+                    }}
+                    style={{ flexDirection: 'row', paddingTop: 5, paddingLeft: 6 }}
+                >
                     <Image
-                        source={require('./../../assets/logo.png')}
-                        style={{
-                            width: 50,
-                            height: 50,
-                        }}
+                        style={{ width: 28, height: 28 }}
+                        source={require('../../assets/profile-image.png')}
                     />
-                    {/* profile image & setting */}
-                    <TouchableOpacity
-                        onPress={() => {
-                            setProfileModalVisible(true)
-                        }}
-                        style={{ flexDirection: 'row', paddingTop: 5 }}
-                    >
-                        <Image
-                            style={{ width: 40, height: 40 }}
-                            source={require('../../assets/profile-image.png')}
-                        />
-                    </TouchableOpacity>
-                </View>
+                </TouchableOpacity>
+            </Animated.View>
 
-                <View style={styles.header2}>
-                    <TouchableOpacity
-                        onPress={() => setModalVisible(true)}
-                        style={styles.catBtn}
-                    >
-                        <Text>카테고리</Text>
-                        <View style={{ backgroundColor: Colors.WHITE }}>
-                            <AntDesign name="down" size={24} color={Colors.BLACK} />
-                        </View>
-                    </TouchableOpacity>
-
-                    <View style={{ flex: 3 }}></View>
-
-                    <AntDesign name="search1" size={28} color={Colors.BLACK} />
-                </View>
-            </View>
+            <HomeLinkList
+                selectedCategories={selectedCategories}
+                onRefreshBookmarks={setRefreshBookmarks}
+                scrollY={scrollY}
+            />
+            <Divider />
+            <RecommendationList recentBookmarks={recentBookmarks} />
 
             {/* Link List */}
-            <View style={styles.linkList}>
+            {/* <Animated.View style={styles.linkList}>
                 <View style={{ height: 18 }}></View>
                 <HomeLinkList selectedCategories={selectedCategories} onRefreshBookmarks={setRefreshBookmarks} />
 
                 <Divider />
 
                 <RecommendationList recentBookmarks={recentBookmarks} />
-            </View>
+            </Animated.View> */}
 
             {/* categories modal */}
             <CustomModal
@@ -350,20 +366,14 @@ const styles = StyleSheet.create({
         marginTop: 5,
         borderTopLeftRadius: 20,
         borderTopRightRadius: 20,
-        backgroundColor: Colors.BACKGROUND_TRANSP,
+        backgroundColor: Colors.WHITE,
     },
     header: {
-        paddingHorizontal: 10,
-    },
-    header1: {
-        flexDirection: 'row',
-        justifyContent: 'space-between'
-    },
-    header2: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'flex-end',
-        paddingTop: 15,
+        paddingTop: 2,
+        paddingHorizontal: 10,
         paddingVertical: 10,
         borderBottomEndRadius: 15,
     },
@@ -377,6 +387,7 @@ const styles = StyleSheet.create({
         width: 50,
         height: 30,
         backgroundColor: Colors.WHITE,
+        marginLeft: 4,
     },
     linkList: {
         flex: 1,

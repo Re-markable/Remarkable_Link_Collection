@@ -1,11 +1,11 @@
-import { View, Text, FlatList, StyleSheet, TouchableOpacity, Image } from 'react-native';
 import React, { useEffect, useRef, useState } from 'react';
+import { View, Animated, FlatList, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
 
 import HomeLinkListItem from './HomeLinkListItem';
 import Colors from '../utils/Colors';
 
 // amplify
-import { Amplify, API } from 'aws-amplify';
+import { Amplify } from 'aws-amplify';
 import { getCurrentUser } from 'aws-amplify/auth';
 import awsmobile from '../aws-exports.js';
 Amplify.configure(awsmobile);
@@ -17,7 +17,7 @@ import { listBookmarks } from '../graphql/queries';
 
 const client = generateClient();
 
-export default function HomeLinkList({ selectedCategories, onRefreshBookmarks }) {
+export default function HomeLinkList({ selectedCategories, onRefreshBookmarks, scrollY }) {
   const [user, setUser] = useState(null);
   const [bookmarks, setBookmarks] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
@@ -149,7 +149,7 @@ export default function HomeLinkList({ selectedCategories, onRefreshBookmarks })
 
   return (
     <View style={styles.container}>
-      <FlatList
+      <Animated.FlatList
         ref={flatListRef}
         data={currentPageData}
         renderItem={({ item }) => (
@@ -158,6 +158,10 @@ export default function HomeLinkList({ selectedCategories, onRefreshBookmarks })
         keyExtractor={(item) => item.id} // Use ID as key
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
+        onScroll={Animated.event(
+          [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+          { useNativeDriver: false }
+        )}
         ListEmptyComponent={
           selectedCategories.length > 0 ? (
             <View style={styles.emptyContainer}>

@@ -47,7 +47,7 @@ export default function HomeLinkListItem({ item, onDelete }) {
             numberOfLines={2}
             ellipsizeMode="tail"
           >
-            {item.description}
+            {item.cat}
           </Text>
         </View>
       </TouchableOpacity>
@@ -94,7 +94,7 @@ const styles = StyleSheet.create({
   },
   textTitle: {
     fontWeight: 'bold',
-    fontSize: 14,
+    fontSize: 13,
     marginBottom: 5,
     flexShrink: 1,
   },
