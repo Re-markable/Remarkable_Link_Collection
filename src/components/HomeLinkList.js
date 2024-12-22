@@ -1,22 +1,24 @@
 import { View, Text, FlatList, StyleSheet, TouchableOpacity, Image } from 'react-native';
 import React, { useEffect, useRef, useState } from 'react';
 
-import HomeLinkListItem from './HomeLinkListItem.js';
-import Colors from '../utils/Colors.js';
+import HomeLinkListItem from './HomeLinkListItem';
+import Colors from '../utils/Colors';
 
 // amplify
 import { Amplify, API } from 'aws-amplify';
+import { getCurrentUser } from 'aws-amplify/auth';
 import awsmobile from '../aws-exports.js';
 Amplify.configure(awsmobile);
 
 // queries
 import { generateClient } from 'aws-amplify/api';
-import { deleteBookmark } from '../graphql/mutations.js';
-import { listBookmarks } from '../graphql/queries.js';
+import { deleteBookmark } from '../graphql/mutations';
+import { listBookmarks } from '../graphql/queries';
 
 const client = generateClient();
 
 export default function HomeLinkList({ selectedCategories, onRefreshBookmarks }) {
+  const [user, setUser] = useState(null);
   const [bookmarks, setBookmarks] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [filteredData, setFilteredData] = useState([]);
@@ -25,15 +27,36 @@ export default function HomeLinkList({ selectedCategories, onRefreshBookmarks })
   const flatListRef = useRef(null);
   const [sortDirection, setSortDirection] = useState("DESC");
 
-  // mount data
   useEffect(() => {
-    fetchBookmarks();
+    async function fetchUser() {
+        try {
+          const userData = await getCurrentUser();
+          setUser(userData);
+          console.log('User data:', userData);
+        } catch (error) {
+          console.log('Error fetching user: ', error);
+          Alert.alert('Error', 'Failed to fetch user data. Please try logging in again.');
+        }
+    }
+    fetchUser();
   }, []);
 
-  const fetchBookmarks = async () => {
+  useEffect(() => {
+    if (user && user.userId) {
+        fetchBookmarks(user.userId);
+    }
+  }, [user]);
+  
+  const fetchBookmarks = async (userid) => {
+    if (!userid) {
+      console.error("User ID is null or undefined.");
+      return;
+    
+    }
     try {
       const bookmarkData = await client.graphql({
         query: listBookmarks,
+        variables: { userid: userid },
       });
       let bookmarkList = bookmarkData.data.listBookmarks.items;
 
@@ -47,6 +70,7 @@ export default function HomeLinkList({ selectedCategories, onRefreshBookmarks })
       });
 
       setBookmarks(bookmarkList);
+      // console.log("bookmarkList: ", bookmarkList);
       console.log(`Fetch bookmark list sorted by createdAt (${sortDirection})`);
     } catch (error) {
       console.log('error on fetching bookmarks', error);
@@ -55,10 +79,10 @@ export default function HomeLinkList({ selectedCategories, onRefreshBookmarks })
 
   // onRefreshBookmarks로 외부에 refreshBookmarks 함수 전달
   useEffect(() => {
-    if (onRefreshBookmarks) {
-      onRefreshBookmarks(fetchBookmarks);
+    if (onRefreshBookmarks && user && user.userId) {
+        onRefreshBookmarks(() => fetchBookmarks(user.userId));
     }
-  }, [onRefreshBookmarks]);
+  }, [onRefreshBookmarks, user]);
   
   // filter categories
   useEffect(() => {
