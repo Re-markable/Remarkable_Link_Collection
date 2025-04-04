@@ -1,0 +1,277 @@
+type Bookmark @aws_iam
+@aws_api_key {
+	id: ID!
+	userid: String!
+	siteName: String
+	link: AWSURL!
+	image: AWSURL
+	title: String!
+	description: String
+	cat: String!
+	createdAt: AWSDateTime!
+	updatedAt: AWSDateTime!
+}
+
+input CreateBookmarkInput {
+	id: ID
+	userid: String!
+	siteName: String
+	link: AWSURL!
+	image: AWSURL
+	title: String!
+	description: String
+	cat: String!
+}
+
+input DeleteBookmarkInput {
+	id: ID!
+}
+
+enum ModelAttributeTypes {
+	binary
+	binarySet
+	bool
+	list
+	map
+	number
+	numberSet
+	string
+	stringSet
+	_null
+}
+
+input ModelBookmarkConditionInput {
+	userid: ModelStringInput
+	siteName: ModelStringInput
+	link: ModelStringInput
+	image: ModelStringInput
+	title: ModelStringInput
+	description: ModelStringInput
+	cat: ModelStringInput
+	and: [ModelBookmarkConditionInput]
+	or: [ModelBookmarkConditionInput]
+	not: ModelBookmarkConditionInput
+	createdAt: ModelStringInput
+	updatedAt: ModelStringInput
+}
+
+type ModelBookmarkConnection @aws_api_key
+@aws_iam {
+	items: [Bookmark]!
+	nextToken: String
+}
+
+input ModelBookmarkFilterInput {
+	id: ModelIDInput
+	userid: ModelStringInput
+	siteName: ModelStringInput
+	link: ModelStringInput
+	image: ModelStringInput
+	title: ModelStringInput
+	description: ModelStringInput
+	cat: ModelStringInput
+	createdAt: ModelStringInput
+	updatedAt: ModelStringInput
+	and: [ModelBookmarkFilterInput]
+	or: [ModelBookmarkFilterInput]
+	not: ModelBookmarkFilterInput
+}
+
+input ModelBooleanInput {
+	ne: Boolean
+	eq: Boolean
+	attributeExists: Boolean
+	attributeType: ModelAttributeTypes
+}
+
+input ModelFloatInput {
+	ne: Float
+	eq: Float
+	le: Float
+	lt: Float
+	ge: Float
+	gt: Float
+	between: [Float]
+	attributeExists: Boolean
+	attributeType: ModelAttributeTypes
+}
+
+input ModelIDInput {
+	ne: ID
+	eq: ID
+	le: ID
+	lt: ID
+	ge: ID
+	gt: ID
+	contains: ID
+	notContains: ID
+	between: [ID]
+	beginsWith: ID
+	attributeExists: Boolean
+	attributeType: ModelAttributeTypes
+	size: ModelSizeInput
+}
+
+input ModelIntInput {
+	ne: Int
+	eq: Int
+	le: Int
+	lt: Int
+	ge: Int
+	gt: Int
+	between: [Int]
+	attributeExists: Boolean
+	attributeType: ModelAttributeTypes
+}
+
+input ModelSizeInput {
+	ne: Int
+	eq: Int
+	le: Int
+	lt: Int
+	ge: Int
+	gt: Int
+	between: [Int]
+}
+
+enum ModelSortDirection {
+	ASC
+	DESC
+}
+
+input ModelStringInput {
+	ne: String
+	eq: String
+	le: String
+	lt: String
+	ge: String
+	gt: String
+	contains: String
+	notContains: String
+	between: [String]
+	beginsWith: String
+	attributeExists: Boolean
+	attributeType: ModelAttributeTypes
+	size: ModelSizeInput
+}
+
+input ModelSubscriptionBookmarkFilterInput {
+	id: ModelSubscriptionIDInput
+	userid: ModelSubscriptionStringInput
+	siteName: ModelSubscriptionStringInput
+	link: ModelSubscriptionStringInput
+	image: ModelSubscriptionStringInput
+	title: ModelSubscriptionStringInput
+	description: ModelSubscriptionStringInput
+	cat: ModelSubscriptionStringInput
+	createdAt: ModelSubscriptionStringInput
+	updatedAt: ModelSubscriptionStringInput
+	and: [ModelSubscriptionBookmarkFilterInput]
+	or: [ModelSubscriptionBookmarkFilterInput]
+}
+
+input ModelSubscriptionBooleanInput {
+	ne: Boolean
+	eq: Boolean
+}
+
+input ModelSubscriptionFloatInput {
+	ne: Float
+	eq: Float
+	le: Float
+	lt: Float
+	ge: Float
+	gt: Float
+	between: [Float]
+	in: [Float]
+	notIn: [Float]
+}
+
+input ModelSubscriptionIDInput {
+	ne: ID
+	eq: ID
+	le: ID
+	lt: ID
+	ge: ID
+	gt: ID
+	contains: ID
+	notContains: ID
+	between: [ID]
+	beginsWith: ID
+	in: [ID]
+	notIn: [ID]
+}
+
+input ModelSubscriptionIntInput {
+	ne: Int
+	eq: Int
+	le: Int
+	lt: Int
+	ge: Int
+	gt: Int
+	between: [Int]
+	in: [Int]
+	notIn: [Int]
+}
+
+input ModelSubscriptionStringInput {
+	ne: String
+	eq: String
+	le: String
+	lt: String
+	ge: String
+	gt: String
+	contains: String
+	notContains: String
+	between: [String]
+	beginsWith: String
+	in: [String]
+	notIn: [String]
+}
+
+input UpdateBookmarkInput {
+	id: ID!
+	userid: String
+	siteName: String
+	link: AWSURL
+	image: AWSURL
+	title: String
+	description: String
+	cat: String
+}
+
+type Mutation {
+	createBookmark(input: CreateBookmarkInput!, condition: ModelBookmarkConditionInput): Bookmark
+		@aws_api_key
+@aws_iam
+	updateBookmark(input: UpdateBookmarkInput!, condition: ModelBookmarkConditionInput): Bookmark
+		@aws_api_key
+@aws_iam
+	deleteBookmark(input: DeleteBookmarkInput!, condition: ModelBookmarkConditionInput): Bookmark
+		@aws_api_key
+@aws_iam
+}
+
+type Query {
+	getBookmark(id: ID!): Bookmark
+		@aws_api_key
+@aws_iam
+	listBookmarks(filter: ModelBookmarkFilterInput, limit: Int, nextToken: String): ModelBookmarkConnection
+		@aws_api_key
+@aws_iam
+}
+
+type Subscription {
+	onCreateBookmark(filter: ModelSubscriptionBookmarkFilterInput): Bookmark
+		@aws_subscribe(mutations: ["createBookmark"])
+@aws_api_key
+@aws_iam
+	onUpdateBookmark(filter: ModelSubscriptionBookmarkFilterInput): Bookmark
+		@aws_subscribe(mutations: ["updateBookmark"])
+@aws_api_key
+@aws_iam
+	onDeleteBookmark(filter: ModelSubscriptionBookmarkFilterInput): Bookmark
+		@aws_subscribe(mutations: ["deleteBookmark"])
+@aws_api_key
+@aws_iam
+}
